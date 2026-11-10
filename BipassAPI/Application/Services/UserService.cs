@@ -1,7 +1,5 @@
 ﻿using Application.Models;
-using Application.Models.Requests;
 using Domain.Entities;
-using Domain.Enums;
 using Domain.Interfaces;
 
 namespace Application.Services
@@ -45,7 +43,7 @@ namespace Application.Services
                 userToUpdate.PhoneNumber = updatedUser.PhoneNumber;
                 userToUpdate.Role = updatedUser.Role;
 
-                await _userRepository.UpdateUser(userToUpdate);
+                await _userRepository.UpdateUserAsync(userToUpdate);
             }
         }
 

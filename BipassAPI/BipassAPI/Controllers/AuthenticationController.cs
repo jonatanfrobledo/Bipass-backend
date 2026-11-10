@@ -1,6 +1,5 @@
 ﻿using Application.Interfaces;
 using Application.Models.Requests;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BipassAPI.Controllers

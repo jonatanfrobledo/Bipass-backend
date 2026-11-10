@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Application.Models.Requests
 {
@@ -18,7 +16,7 @@ namespace Application.Models.Requests
 
         public string StreamingUrl { get; set; }
 
-        // public string ImageUrl { get; set; }
+        public string? ImageUrl { get; set; }
 
         [Required]
         public CreateVenueDto Venue { get; set; }

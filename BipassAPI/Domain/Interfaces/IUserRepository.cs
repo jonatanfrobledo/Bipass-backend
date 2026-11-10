@@ -1,6 +1,4 @@
 ﻿using Domain.Entities;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Domain.Interfaces
 {
@@ -12,10 +10,9 @@ namespace Domain.Interfaces
 
         Task<User?> GetUserById(int id);
 
-        // Agregados para corregir el error:
         Task<List<User>> GetAllUsers();
 
-        Task UpdateUser(User user);
+        Task UpdateUserAsync(User user);
 
         Task DeleteUser(int id);
     }

@@ -2,12 +2,7 @@
 using Domain.Entities;
 using Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
-using System.Configuration;
 
-// ⚠️ Descomentar estos 'using' cuando tengas el Access Token de Mercado Pago
-// using MercadoPago.Client.Preference;
-// using MercadoPago.Config;
-// using MercadoPago.Resource.Preference;
 
 namespace Application.Services
 {
@@ -25,10 +20,6 @@ namespace Application.Services
             _orderRepository = orderRepository;
             _ticketTypeRepository = ticketTypeRepository;
             _configuration = configuration;
-
-            // ⚠️ Comentado temporalmente para no configurar el token inexistente
-            // var accessToken = _configuration["MercadoPago:AccessToken"];
-            // MercadoPagoConfig.AccessToken = accessToken;
         }
 
         public async Task<OrderDto?> GetOrderByIdAsync(int id)
@@ -103,60 +94,16 @@ namespace Application.Services
             order.TotalAmount = totalAmount;
             await _orderRepository.AddOrder(order);
 
-            // =========================================================================
-            // 🧪 1. FUNCIONALIDAD TEMPORAL / MOCK (ACTIVA)
-            // =========================================================================
-            await Task.Delay(300); // Simula latencia
+
+            await Task.Delay(300);
             string mockPreferenceId = "PREFERENCE_MOCK_" + Guid.NewGuid().ToString("N");
 
             return new PaymentPreferenceResponseDto
             {
                 OrderId = order.Id,
                 PreferenceId = mockPreferenceId,
-                InitPoint = "http://localhost:5173/mytickets" // Redirige directamente al front
+                InitPoint = "http://localhost:5173/mytickets"
             };
-
-
-            // =========================================================================
-            // 💳 2. CÓDIGO REAL DE MERCADO PAGO (DESCOMENTAR CUANDO TENGAS EL ACCESS TOKEN)
-            // =========================================================================
-            /*
-            var preferenceItems = new List<PreferenceItemRequest>();
-
-            foreach (var item in order.OrderItems)
-            {
-                preferenceItems.Add(new PreferenceItemRequest
-                {
-                    Title = "Entrada Evento",
-                    Quantity = item.Quantity,
-                    CurrencyId = "ARS",
-                    UnitPrice = item.UnitPrice
-                });
-            }
-
-            var request = new PreferenceRequest
-            {
-                Items = preferenceItems,
-                BackUrls = new PreferenceBackUrlsRequest
-                {
-                    Success = "http://localhost:5173/mytickets",
-                    Failure = "http://localhost:5173/checkout",
-                    Pending = "http://localhost:5173/mytickets"
-                },
-                AutoReturn = "approved",
-                ExternalReference = order.Id.ToString()
-            };
-
-            var client = new PreferenceClient();
-            Preference preference = await client.CreateAsync(request);
-
-            return new PaymentPreferenceResponseDto
-            {
-                OrderId = order.Id,
-                PreferenceId = preference.Id,
-                InitPoint = preference.InitPoint
-            };
-            */
         }
 
         public async Task<int> AddOrderAsync(CreateOrderDto newOrderDto)

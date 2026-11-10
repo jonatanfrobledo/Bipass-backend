@@ -1,27 +1,19 @@
 ﻿using Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Domain.Interfaces
 {
     public interface IEventRepository
     {
-        // Obtiene la lista completa de eventos.
-        public Task<List<Event>> GetEvents();
+        Task<List<Event>> GetEvents();
 
-        // Agrega un nuevo evento.
-        public Task AddEvent(Event newEvent);
+        Task<List<Event>> GetEventsByOrganizerId(int organizerId);
 
-        // Actualiza un evento existente.
-        public Task UpdateEvent(Event updatedEvent);
+        Task AddEvent(Event newEvent);
 
-        // Elimina un evento por su ID.
-        public Task DeleteEvent(int id);
+        Task UpdateEvent(Event updatedEvent);
 
-        // Obtiene un evento específico por su ID.
-        public Task<Event?> GetEventById(int id);
+        Task DeleteEvent(int id);
+
+        Task<Event?> GetEventById(int id);
     }
 }

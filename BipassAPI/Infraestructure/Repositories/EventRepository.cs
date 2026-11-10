@@ -1,11 +1,6 @@
 ﻿using Domain.Entities;
 using Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Infraestructure.Repository
 {
@@ -18,7 +13,6 @@ namespace Infraestructure.Repository
         }
         public async Task<List<Event>> GetEvents()
         {
-            // Incluimos Venue y TicketTypes para evitar consultas adicionales.
             return await _dbContext.Events
                 .Include(e => e.Venue)
                 .Include(e => e.TicketTypes)
@@ -26,10 +20,10 @@ namespace Infraestructure.Repository
         }
         public async Task<Event?> GetEventById(int id)
         {
-            // Incluimos Venue y TicketTypes para evitar consultas adicionales.
             return await _dbContext.Events
                 .Include(e => e.Venue)
                 .Include(e => e.TicketTypes)
+                .Where(e=> e.IsActive)
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
         public async Task AddEvent(Event newEvent)
@@ -41,6 +35,14 @@ namespace Infraestructure.Repository
         {
             _dbContext.Events.Update(updatedEvent);
             await _dbContext.SaveChangesAsync();
+        }
+        public async Task<List<Event>> GetEventsByOrganizerId(int organizerId)
+        {
+            return await _dbContext.Events
+                .Include(e => e.Venue)
+                .Include(e => e.TicketTypes)
+                .Where(e => e.OrganizerId == organizerId)
+                .ToListAsync();
         }
         public async Task DeleteEvent(int id)
         {

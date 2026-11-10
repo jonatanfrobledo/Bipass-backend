@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace Application.Models.Requests
 {
@@ -13,6 +8,6 @@ namespace Application.Models.Requests
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         [Required]
-        public string TicketTypeName { get; set; } // Nombre del tipo de entrada
+        public string TicketTypeName { get; set; }
     }
 }

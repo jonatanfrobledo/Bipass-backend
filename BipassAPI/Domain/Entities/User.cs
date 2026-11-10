@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Domain.Enums;
 using System.ComponentModel.DataAnnotations;
-using Domain.Enums;
 
 namespace Domain.Entities
 {

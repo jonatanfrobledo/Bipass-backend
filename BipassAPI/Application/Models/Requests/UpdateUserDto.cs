@@ -1,10 +1,5 @@
 ﻿using Domain.Enums;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Models.Requests
 {
@@ -22,7 +17,6 @@ namespace Application.Models.Requests
 
         public string? PhoneNumber { get; set; }
 
-        // Permite al SuperAdmin cambiarle el rol a un usuario existente
         public UserRole Role { get; set; }
     }
 }

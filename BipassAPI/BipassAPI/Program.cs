@@ -11,12 +11,11 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using MercadoPago.Config;
 using MercadoPago.Client.Preference;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// -------------------------------------------------------------
-// 1. Configuración de CORS (Permite peticiones desde el frontend)
-// -------------------------------------------------------------
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy => policy
@@ -34,9 +33,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// -------------------------------------------------------------
-// 2. Swagger / OpenAPI con autenticación JWT
-// -------------------------------------------------------------
+
 builder.Services.AddSwaggerGen(setupAction =>
 {
     setupAction.SwaggerDoc("v1", new OpenApiInfo { Title = "Bipass API", Version = "v1" });
@@ -65,9 +62,7 @@ builder.Services.AddSwaggerGen(setupAction =>
     });
 });
 
-// -------------------------------------------------------------
-// 3. Configuración de Base de Datos SQL Server
-// -------------------------------------------------------------
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("La cadena de conexión 'DefaultConnection' no está configurada en appsettings.json.");
 
@@ -80,9 +75,7 @@ builder.Services.AddDbContext<BipassDbContext>(options =>
             errorNumbersToAdd: null);
     }));
 
-// -------------------------------------------------------------
-// 4. Autenticación JWT
-// -------------------------------------------------------------
+
 var secretKey = builder.Configuration["AuthenticationService:SecretForKey"]
     ?? throw new InvalidOperationException("La clave secreta JWT 'AuthenticationService:SecretForKey' no está configurada.");
 
@@ -97,29 +90,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ValidIssuer = builder.Configuration["AuthenticationService:Issuer"],
             ValidAudience = builder.Configuration["AuthenticationService:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+
+            RoleClaimType = ClaimTypes.Role,
+            NameClaimType = ClaimTypes.NameIdentifier
         };
     });
 
 builder.Services.AddAuthorization();
 
-// 4.5. Configuración de Mercado Pago 
-// -------------------------------------------------------------
 var mpAccessToken = builder.Configuration["MercadoPago:AccessToken"]
     ?? throw new InvalidOperationException("El token de Mercado Pago 'MercadoPago:AccessToken' no está configurado.");
 
 MercadoPagoConfig.AccessToken = mpAccessToken;
 
-// Opcional: Registrar PreferenceClient para Inyección de Dependencias
 builder.Services.AddScoped<PreferenceClient>();
-// -------------------------------------------------------------
-// 5. Inyección de Dependencias (Capa de Aplicación e Infraestructura)
-// -------------------------------------------------------------
+
 #region Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IEventRepository, EventRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<ITicketTypeRepository, TicketTypeRepository>();
+
 #endregion
 
 #region Services
@@ -132,11 +124,6 @@ builder.Services.AddScoped<CheckoutService>();
 
 var app = builder.Build();
 
-// -------------------------------------------------------------
-// 6. Pipeline de Solicitudes HTTP
-// -------------------------------------------------------------
-
-// Migración y creación automática de la BD en desarrollo
 if (app.Environment.IsDevelopment())
 {
     using (var scope = app.Services.CreateScope())

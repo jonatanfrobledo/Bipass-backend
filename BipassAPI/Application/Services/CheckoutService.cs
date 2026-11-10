@@ -1,88 +1,117 @@
-﻿using System;
-using System.Linq;
-using System.Threading.Tasks;
-using Application.Models.Requests;
+﻿using Application.Models.Requests;
 using Domain.Entities;
+using Domain.Interfaces;
+using MercadoPago.Client.Preference;
+using MercadoPago.Config;
+using MercadoPago.Error;
+using MercadoPago.Resource.Preference;
 using Microsoft.Extensions.Configuration;
-
-// ⚠️ Descomentar estos 'using' cuando tengas el Access Token de Mercado Pago
-// using MercadoPago.Client.Preference;
-// using MercadoPago.Config;
-// using MercadoPago.Resource.Preference;
 
 namespace Infraestructure.Services
 {
     public class CheckoutService
     {
         private readonly IConfiguration _configuration;
+        private readonly IOrderRepository _orderRepository;
+        private readonly ITicketTypeRepository _ticketTypeRepository;
 
-        public CheckoutService(IConfiguration configuration)
+        public CheckoutService(
+            IConfiguration configuration,
+            IOrderRepository orderRepository,
+            ITicketTypeRepository ticketTypeRepository)
         {
             _configuration = configuration;
+            _orderRepository = orderRepository;
+            _ticketTypeRepository = ticketTypeRepository;
         }
 
-        public async Task<string> CreatePreferenceAsync(OrderDto order)
+        public async Task<string> CreatePreferenceFromCheckoutAsync(CreatePreferenceDto orderDto)
         {
-            // =========================================================================
-            // 🧪 1. FUNCIONALIDAD TEMPORAL / MOCK (ACTIVA)
-            // =========================================================================
-            // Simula latencia de red para probar el flujo de compra en el Frontend React
-            await Task.Delay(500);
-
-            // Genera un ID de preferencia falso para que React pueda continuar al siguiente paso sin dar error 403
-            string mockPreferenceId = "PREFERENCE_MOCK_" + Guid.NewGuid().ToString("N");
-
-            return mockPreferenceId;
-
-
-            // =========================================================================
-            // 💳 2. CÓDIGO REAL DE MERCADO PAGO (DESCOMENTAR CUANDO TENGAS EL ACCESS TOKEN)
-            // =========================================================================
-            /*
-            // A. Obtener token desde appsettings.json
             var token = _configuration["MercadoPago:AccessToken"];
             if (string.IsNullOrWhiteSpace(token))
             {
                 throw new InvalidOperationException("El token de Mercado Pago 'MercadoPago:AccessToken' no está configurado en appsettings.json.");
             }
-
-            // B. Configurar el Access Token en el SDK global
             MercadoPagoConfig.AccessToken = token;
 
-            // C. Armar el request de la preferencia
-            var request = new PreferenceRequest
+            decimal calculatedTotal = 0;
+            var newOrder = new Order
             {
-                Items = order.OrderItems.Select(item => new PreferenceItemRequest
-                {
-                    Title = item.TicketType?.Name ?? "Entrada de Evento",
-                    Quantity = item.Quantity,
-                    CurrencyId = "ARS",
-                    UnitPrice = item.UnitPrice
-                }).ToList(),
-
-                // Redirecciones de éxito, falla o pendiente para el Frontend
-                BackUrls = new PreferenceBackUrlsRequest
-                {
-                    Success = "http://localhost:5173/checkout/success",
-                    Failure = "http://localhost:5173/checkout/failure",
-                    Pending = "http://localhost:5173/checkout/pending"
-                },
-                AutoReturn = "approved",
-
-                // Vincula el ID de tu orden de BD con la transacción de Mercado Pago (clave para los Webhooks)
-                ExternalReference = order.Id.ToString(),
-
-                // URL para notificaciones de pagos en tiempo real (requiere ngrok en local)
-                // NotificationUrl = "https://tu-dominio-ngrok.ngrok-free.app/api/webhooks/mercadopago"
+                UserId = orderDto.UserId,
+                OrderDate = DateTime.Now,
+                Status = "Pending",
+                OrderItems = new List<OrderItem>()
             };
 
-            // D. Crear la preferencia en Mercado Pago
-            var client = new PreferenceClient();
-            Preference preference = await client.CreateAsync(request);
+            foreach (var itemDto in orderDto.Items)
+            {
+                var ticketType = await _ticketTypeRepository.GetTicketTypeById(itemDto.TicketTypeId);
+                if (ticketType == null || ticketType.QuantityAvailable < itemDto.Quantity)
+                {
+                    throw new Exception($"Stock insuficiente para el tipo de entrada: {ticketType?.Name ?? "Desconocido"}");
+                }
 
-            // Retornamos el ID de la preferencia para montarlo con el SDK en React
-            return preference.Id;
-            */
+                ticketType.QuantityAvailable -= itemDto.Quantity;
+                calculatedTotal += ticketType.Price * itemDto.Quantity;
+
+                newOrder.OrderItems.Add(new OrderItem
+                {
+                    TicketTypeId = itemDto.TicketTypeId,
+                    Quantity = itemDto.Quantity,
+                    UnitPrice = ticketType.Price
+                });
+            }
+
+            newOrder.TotalAmount = calculatedTotal;
+
+            await _orderRepository.AddOrder(newOrder);
+
+            var preferenceItems = newOrder.OrderItems.Select(item => new PreferenceItemRequest
+            {
+                Title = "Entrada BIPASS - Evento",
+                Quantity = item.Quantity,
+                CurrencyId = "ARS",
+                UnitPrice = item.UnitPrice
+            }).ToList();
+
+            var request = new PreferenceRequest
+            {
+                Items = preferenceItems,
+                BackUrls = new PreferenceBackUrlsRequest
+                {
+                    Success = "http://localhost:5173/mytickets?status=approved",
+                    Failure = "http://localhost:5173/checkout",
+                    Pending = "http://localhost:5173/mytickets?status=pending"
+                },
+                ExternalReference = newOrder.Id.ToString()
+            };
+
+            try
+            {
+                var client = new PreferenceClient();
+                Preference preference = await client.CreateAsync(request);
+
+                if (preference == null || string.IsNullOrEmpty(preference.Id))
+                {
+                    throw new Exception("Mercado Pago no devolvió un ID de preferencia válido.");
+                }
+
+                return preference.Id;
+            }
+            catch (MercadoPagoApiException mpEx)
+            {
+                throw new Exception($"Error API Mercado Pago (Status {mpEx.StatusCode}): {mpEx.Message}");
+            }
+        }
+
+        public async Task<bool> ApproveOrderByExternalReferenceAsync(int orderId)
+        {
+            var order = await _orderRepository.GetOrderByIdAsync(orderId);
+            if (order == null) return false;
+
+            order.Status = "Approved";
+            await _orderRepository.UpdateOrder(order);
+            return true;
         }
     }
 }

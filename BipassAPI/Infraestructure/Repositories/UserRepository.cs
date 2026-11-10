@@ -1,8 +1,6 @@
 ﻿using Domain.Entities;
 using Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Infraestructure.Repository
 {
@@ -36,7 +34,7 @@ namespace Infraestructure.Repository
             return _dbContext.Users.FirstOrDefault(u => u.Email == email && u.PasswordHash == password);
         }
 
-        public async Task UpdateUser(User user) 
+        public async Task UpdateUserAsync(User user) 
         {
             _dbContext.Users.Update(user);
             await _dbContext.SaveChangesAsync(); 

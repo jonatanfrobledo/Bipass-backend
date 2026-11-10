@@ -1,8 +1,7 @@
 ﻿using Application.Models.Requests;
 using Application.Services;
-using Domain.Entities;
+using Infraestructure.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -10,20 +9,21 @@ namespace BipassAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Todos los endpoints requieren autenticación
+    [Authorize]
     public class OrdersController : ControllerBase
     {
         private readonly OrderService _orderService;
+        private readonly CheckoutService _checkoutService;
 
-        public OrdersController(OrderService orderService)
+        public OrdersController(OrderService orderService, CheckoutService checkoutService)
         {
             _orderService = orderService;
+            _checkoutService = checkoutService;
         }
 
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] CreateOrderDto createOrderDto)
         {
-            // Obtiene el ID del usuario del token JWT para evitar suplantación de identidad
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
             createOrderDto.UserId = userId;
 
@@ -47,11 +47,10 @@ namespace BipassAPI.Controllers
                 return NotFound(new { message = "Orden no encontrada." });
             }
 
-            // Valida que el usuario logueado sea el dueño de la orden o un admin
             var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            if (order.UserId != userId && !User.IsInRole("admin"))
+            if (order.UserId != userId && !User.IsInRole("SuperAdmin"))
             {
-                return Forbid(); // 403 Forbidden si el usuario no tiene permisos
+                return Forbid();
             }
 
             return Ok(order);
@@ -64,16 +63,50 @@ namespace BipassAPI.Controllers
             var orders = await _orderService.GetOrdersByUserIdAsync(userId);
             return Ok(orders);
         }
+
         [HttpPost("create-preference")]
-        public async Task<IActionResult> CreatePreference([FromBody] CreateOrderDto createOrderDto)
+        public async Task<IActionResult> CreatePreference([FromBody] CreatePreferenceDto requestDto)
         {
-            var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
-            createOrderDto.UserId = userId;
+            if (requestDto == null || requestDto.Items == null || requestDto.Items.Count == 0)
+            {
+                return BadRequest(new { message = "Los ítems de la orden son requeridos." });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized(new { message = "Token inválido o sin identificador de usuario." });
+            }
+
+            var userId = int.Parse(userIdClaim);
+            requestDto.UserId = userId;
 
             try
             {
-                var preferenceResult = await _orderService.CreatePaymentPreferenceAsync(createOrderDto);
-                return Ok(preferenceResult);
+                string preferenceId = await _checkoutService.CreatePreferenceFromCheckoutAsync(requestDto);
+
+                var userOrders = await _orderService.GetOrdersByUserIdAsync(userId);
+                var latestOrder = userOrders.OrderByDescending(o => o.Id).FirstOrDefault();
+                int orderId = latestOrder?.Id ?? 0;
+
+                return Ok(new { preferenceId, orderId });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        [HttpPost("approve/{orderId:int}")]
+        public async Task<IActionResult> ApproveOrder(int orderId)
+        {
+            try
+            {
+                var success = await _checkoutService.ApproveOrderByExternalReferenceAsync(orderId);
+                if (!success)
+                {
+                    return NotFound(new { message = "Orden no encontrada." });
+                }
+                return Ok(new { message = "Orden aprobada exitosamente." });
             }
             catch (Exception ex)
             {

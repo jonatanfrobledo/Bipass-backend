@@ -1,8 +1,8 @@
 ﻿using Application.Models.Requests;
 using Application.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BipassAPI.Controllers
 {
@@ -16,12 +16,25 @@ namespace BipassAPI.Controllers
         {
             _eventService = eventService;
         }
-
         [HttpGet]
         public async Task<IActionResult> Get()
         {
             var events = await _eventService.GetEventsAsync();
             return Ok(events);
+        }
+
+        [Authorize(Roles = "SuperAdmin,Organizer")]
+        [HttpGet("organizer/my-events")]
+        public async Task<IActionResult> GetMyEvents()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdClaim, out int organizerId))
+            {
+                return Unauthorized(new { message = "Token inválido o ID de usuario no encontrado." });
+            }
+
+            var myEvents = await _eventService.GetEventsByOrganizerIdAsync(organizerId);
+            return Ok(myEvents);
         }
 
         [HttpGet("{id:int}")]
@@ -35,55 +48,67 @@ namespace BipassAPI.Controllers
             return Ok(eventItem);
         }
 
-        // Descomentar el Authorize cuando tengas configurado el rol de admin
-        // [Authorize(Roles = "admin,super-admin")]
+        [HttpGet("{id:int}/tickets")]
+        public async Task<IActionResult> GetTicketTypesByEvent(int id)
+        {
+            try
+            {
+                var tickets = await _eventService.GetTicketTypesByEventIdAsync(id);
+                return Ok(tickets);
+            }
+            catch (Exception)
+            {
+                return Ok(new List<object>());
+            }
+        }
+
+        [Authorize(Roles = "SuperAdmin,Organizer")]
         [HttpPost]
         public async Task<IActionResult> Post([FromBody] CreateEventDto createEventDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var newEventId = await _eventService.AddEventAsync(createEventDto);
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            int organizerId = int.Parse(userIdClaim ?? "0");
 
-            // Retorna un 201 Created con el ID del nuevo evento generado
+            var newEventId = await _eventService.AddEventAsync(createEventDto, organizerId);
             return CreatedAtAction(nameof(GetById), new { id = newEventId }, new { id = newEventId });
         }
 
-        [Authorize(Roles = "admin,super-admin")]
+        [Authorize(Roles = "SuperAdmin,Organizer")]
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Put(int id, [FromBody] UpdateEventDto updateEventDto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
-                await _eventService.UpdateEventAsync(id, updateEventDto);
-                return NoContent(); // 204 No Content para actualizaciones exitosas
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                int currentUserId = int.Parse(userIdClaim ?? "0");
+
+                await _eventService.UpdateEventAsync(id, updateEventDto, currentUserId, userRole);
+                return NoContent();
             }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         }
 
-        [Authorize(Roles = "admin,super-admin")]
+        [Authorize(Roles = "SuperAdmin,Organizer")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
             try
             {
-                await _eventService.DeleteEventAsync(id);
-                return NoContent(); // 204 No Content para eliminaciones exitosas
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                int currentUserId = int.Parse(userIdClaim ?? "0");
+
+                await _eventService.DeleteEventAsync(id, currentUserId, userRole);
+                return NoContent();
             }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         }
     }
 }
