@@ -30,7 +30,7 @@ namespace BipassAPI.Controllers
             try
             {
                 var newOrderId = await _orderService.AddOrderAsync(createOrderDto);
-                return CreatedAtAction(nameof(GetById), new { id = newOrderId });
+                return CreatedAtAction(nameof(GetById), new { id = newOrderId }, new { id = newOrderId });
             }
             catch (Exception ex)
             {
@@ -96,6 +96,7 @@ namespace BipassAPI.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
         [HttpPost("approve/{orderId:int}")]
         public async Task<IActionResult> ApproveOrder(int orderId)
         {

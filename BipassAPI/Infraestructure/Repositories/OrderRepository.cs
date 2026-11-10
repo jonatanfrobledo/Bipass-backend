@@ -24,7 +24,9 @@ namespace Infraestructure.Repository
             return await _dbContext.Orders
                 .Where(o => o.UserId == userId)
                 .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.TicketType) 
+                    .ThenInclude(oi => oi.TicketType)
+                        .ThenInclude(tt => tt.Event)
+                            .ThenInclude(e => e.Venue)
                 .ToListAsync();
         }
 
@@ -37,7 +39,9 @@ namespace Infraestructure.Repository
         {
             return await _dbContext.Orders
                 .Include(o => o.OrderItems)
-                .ThenInclude(oi => oi.TicketType)
+                    .ThenInclude(oi => oi.TicketType)
+                        .ThenInclude(tt => tt.Event)
+                            .ThenInclude(e => e.Venue)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
 

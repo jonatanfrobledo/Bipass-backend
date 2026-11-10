@@ -3,7 +3,6 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Microsoft.Extensions.Configuration;
 
-
 namespace Application.Services
 {
     public class OrderService
@@ -38,7 +37,12 @@ namespace Application.Services
                     Id = oi.Id,
                     Quantity = oi.Quantity,
                     UnitPrice = oi.UnitPrice,
-                    TicketTypeName = oi.TicketType?.Name ?? "Entrada"
+                    TicketTypeName = oi.TicketType?.Name ?? "Entrada",
+                    EventTitle = oi.TicketType?.Event?.Name ?? "Evento BIPASS",
+                    EventLocation = oi.TicketType?.Event?.Venue?.Name ?? "Centro de Eventos Rosario",
+                    EventDate = oi.TicketType?.Event?.Date != default
+                        ? oi.TicketType.Event.Date.ToString("yyyy-MM-dd")
+                        : DateTime.Now.ToString("yyyy-MM-dd")
                 }).ToList()
             };
         }
@@ -57,7 +61,12 @@ namespace Application.Services
                     Id = oi.Id,
                     Quantity = oi.Quantity,
                     UnitPrice = oi.UnitPrice,
-                    TicketTypeName = oi.TicketType?.Name ?? "Entrada"
+                    TicketTypeName = oi.TicketType?.Name ?? "Entrada",
+                    EventTitle = oi.TicketType?.Event?.Name ?? "Evento BIPASS",
+                    EventLocation = oi.TicketType?.Event?.Venue?.Name ?? "Centro de Eventos Rosario",
+                    EventDate = oi.TicketType?.Event?.Date != default
+                        ? oi.TicketType.Event.Date.ToString("yyyy-MM-dd")
+                        : DateTime.Now.ToString("yyyy-MM-dd")
                 }).ToList()
             }).ToList();
         }
@@ -93,7 +102,6 @@ namespace Application.Services
 
             order.TotalAmount = totalAmount;
             await _orderRepository.AddOrder(order);
-
 
             await Task.Delay(300);
             string mockPreferenceId = "PREFERENCE_MOCK_" + Guid.NewGuid().ToString("N");
